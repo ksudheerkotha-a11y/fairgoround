@@ -1,0 +1,685 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Activation Playbook Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: customer rail on the left; the selected account's Day 0-28 journey on the right (calendar, state, event log, message preview, scorecard, cohort table). */
+:root{
+  --bg:#EDF1F4; --surface:#FFFFFF; --surface2:#F5F7F9; --ink:#13202C; --muted:#586878; --line:#D5DCE3;
+  --accent:#0A6C74; --accent-soft:#D9EEF0; --accent-ink:#FFFFFF;
+  --green:#1D8556; --green-bg:#DCF0E6; --amber:#A9690F; --amber-bg:#F7E9CF; --red:#BE3838; --red-bg:#F6D9D9; --setup-bg:#E3E8ED;
+  --font-d:'Bricolage Grotesque',system-ui,sans-serif; --font-b:'IBM Plex Sans',system-ui,sans-serif; --font-m:'IBM Plex Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1419; --surface:#151E26; --surface2:#1B2630; --ink:#E5ECF2; --muted:#93A4B3; --line:#26343F;
+    --accent:#4FC3CC; --accent-soft:#16363B; --accent-ink:#06191B;
+    --green:#4CBB8A; --green-bg:#14352A; --amber:#E2A545; --amber-bg:#3A2D12; --red:#EA6A65; --red-bg:#40201F; --setup-bg:#212D37;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1419; --surface:#151E26; --surface2:#1B2630; --ink:#E5ECF2; --muted:#93A4B3; --line:#26343F;
+  --accent:#4FC3CC; --accent-soft:#16363B; --accent-ink:#06191B;
+  --green:#4CBB8A; --green-bg:#14352A; --amber:#E2A545; --amber-bg:#3A2D12; --red:#EA6A65; --red-bg:#40201F; --setup-bg:#212D37;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-b);font-size:14px;line-height:1.5;
+  padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1280px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-d);margin:0;text-wrap:balance}
+h1{font-size:30px;line-height:1.1;letter-spacing:-.01em}
+h2{font-size:17px;line-height:1.25}
+h3{font-size:14px}
+p{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.top p{color:var(--muted);max-width:62ch;margin-top:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.app{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);max-height:calc(100vh - 24px);overflow:auto;padding:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.rail h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-family:var(--font-b);font-weight:600;padding:2px 6px 8px}
+.cust{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;padding:7px 8px;border:0;background:none;border-radius:6px}
+.cust:hover{background:var(--surface2)}
+.cust[aria-pressed="true"]{background:var(--accent-soft);font-weight:600}
+.cust small{color:var(--muted);font-size:11px;font-weight:400}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--setup-bg);display:inline-block}
+.dot.Green{background:var(--green)}.dot.Yellow{background:var(--amber)}.dot.Red{background:var(--red)}
+.railnote{font-size:11px;color:var(--muted);padding:8px 8px 0}
+.stage{display:grid;gap:16px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--setup-bg);color:var(--ink)}
+.pill.Green{background:var(--green-bg);color:var(--green)}.pill.Yellow{background:var(--amber-bg);color:var(--amber)}.pill.Red{background:var(--red-bg);color:var(--red)}
+.pill.plain{background:var(--surface2);border:1px solid var(--line);color:var(--muted);font-weight:500}
+.head{display:flex;gap:12px 16px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.head h2{font-size:24px}
+.head .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.head .note{color:var(--muted);margin-top:8px;max-width:70ch}
+.btn{border:1px solid var(--line);background:var(--surface2);border-radius:7px;padding:6px 12px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+details.card>summary{cursor:pointer;font-family:var(--font-d);font-weight:600;font-size:15px;list-style:none;display:flex;justify-content:space-between;gap:8px}
+details.card>summary::-webkit-details-marker{display:none}
+details.card>summary::after{content:"Show";font-family:var(--font-b);font-weight:500;font-size:12px;color:var(--accent)}
+details.card[open]>summary::after{content:"Hide"}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px 20px;margin-top:14px}
+.fld{display:grid;gap:6px;align-content:start}
+.fld label.t,.fld .t{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.fld input[type=range]{width:100%;accent-color:var(--accent)}
+.fld input[type=checkbox],.fld input[type=radio]{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.chk{display:inline-flex;align-items:center;gap:7px}
+output{font-family:var(--font-m);font-size:12px;color:var(--ink)}
+.hint{font-size:12px;color:var(--muted)}
+.cal{display:grid;grid-template-columns:48px repeat(7,minmax(0,1fr));gap:5px;margin-top:12px}
+.wl{font-size:11px;color:var(--muted);align-self:center;font-weight:600}
+.cell{position:relative;height:60px;border:1px solid var(--line);border-bottom:3px solid var(--line);border-radius:6px;background:var(--setup-bg);text-align:left;padding:4px 6px;display:block;min-width:0}
+.cell.Green{background:var(--green-bg);border-bottom-color:var(--green)}
+.cell.Yellow{background:var(--amber-bg);border-bottom-color:var(--amber)}
+.cell.Red{background:var(--red-bg);border-bottom-color:var(--red)}
+.cell[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px}
+.cell .dn{font-family:var(--font-m);font-size:11px;font-weight:500}
+.cell .act{position:absolute;left:6px;bottom:6px;width:9px;height:9px;border-radius:2px;background:var(--ink)}
+.cell .dots{position:absolute;right:5px;bottom:5px;display:flex;gap:3px;max-width:60%;flex-wrap:wrap;justify-content:flex-end}
+.dots i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:block}
+.dots i.pro{background:var(--ink)}
+.dots i.held{background:transparent;border:1.5px solid var(--red)}
+.dots i.peak{background:var(--red);border-radius:2px}
+.scrub{display:flex;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.scrub input{flex:1;min-width:140px;accent-color:var(--accent)}
+.keys{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--muted)}
+.keys span{display:inline-flex;align-items:center;gap:6px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:9px 14px;margin-top:12px;align-items:baseline}
+.kv dt{color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.kv dd{margin:0}
+.next{margin-top:14px;padding:10px 12px;background:var(--surface2);border:1px solid var(--line);border-radius:8px}
+.next b{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.ladder{display:grid;gap:6px;margin-top:14px;padding:0;list-style:none}
+.ladder li{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+.ladder li b{font-family:var(--font-m);font-weight:500;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;font-size:11px}
+.ladder li.on{color:var(--ink);background:var(--accent-soft);border-color:var(--accent)}
+.ladder li.on b{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{border:1px solid var(--line);background:var(--surface2);border-radius:99px;padding:3px 12px;font-size:12px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.logh{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+.log{margin-top:6px}
+.dayh{margin:18px 0 8px;display:flex;align-items:baseline;gap:8px;font-size:13px;font-family:var(--font-d)}
+.dayh small{color:var(--muted);font-family:var(--font-b);font-weight:400}
+.ev{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--surface)}
+.ev.ahead{opacity:.5}
+.ev.sys{background:var(--surface2)}
+.mark{width:10px;height:10px;border-radius:50%;background:var(--accent);margin-top:5px}
+.ev.held .mark{background:transparent;border:2px solid var(--red)}
+.ev.skipped .mark{background:transparent;border:2px dashed var(--muted)}
+.ev.sys .mark{background:var(--muted);border-radius:2px}
+.evt{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center}
+.evt strong{font-weight:600}
+.chips{display:inline-flex;gap:5px;flex-wrap:wrap}
+.chip{font-size:11px;padding:1px 7px;border-radius:5px;background:var(--surface2);border:1px solid var(--line);color:var(--muted)}
+.ev .trig{font-size:12px;color:var(--muted);margin-top:2px}
+.ev .body{margin-top:5px}
+.ev .esc{margin-top:4px;font-size:12px;color:var(--muted)}
+.ev .why{margin-top:5px;font-size:12px;font-weight:500;color:var(--red)}
+.ev.skipped .why{color:var(--muted)}
+.ev time{font-family:var(--font-m);font-size:11px;color:var(--muted);white-space:nowrap}
+.tabs{display:flex;gap:6px;margin:10px 0}
+.tabs button{border:1px solid var(--line);background:var(--surface2);border-radius:6px;padding:4px 12px;font-size:12px}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.status{font-size:12px;padding:8px 10px;border-radius:7px;background:var(--surface2);border:1px solid var(--line);margin-bottom:12px}
+.mail{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.mail .mh{padding:12px 14px;background:var(--surface2);border-bottom:1px solid var(--line);display:grid;gap:3px}
+.mail .mh small{color:var(--muted)}
+.mail .mb{padding:16px 18px;display:grid;gap:12px;max-width:60ch}
+.cta{display:inline-block;background:var(--accent);color:var(--accent-ink);padding:9px 16px;border-radius:7px;font-weight:600;width:max-content}
+.mail .alt{font-size:13px;color:var(--muted)}
+.mail .alt u{color:var(--accent)}
+.inapp{margin-top:14px;border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--surface);display:grid;gap:10px}
+.inapp .row{gap:8px}
+.score{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.stat{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface2)}
+.stat b{display:block;font-family:var(--font-d);font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+.tw{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--surface2)}
+tbody tr.sel{background:var(--accent-soft)}
+.ok{color:var(--green);font-weight:600}.no{color:var(--muted)}
+.foot{margin-top:6px;color:var(--muted);font-size:12px;max-width:80ch}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;max-height:none;display:flex;gap:6px;overflow-x:auto;padding:8px}
+  .rail h2,.railnote{display:none}
+  .cust{width:auto;flex:0 0 auto;grid-template-columns:10px auto;border:1px solid var(--line)}
+  .cust small{display:none}
+  .cols{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  h1{font-size:25px}
+  .cal{grid-template-columns:34px repeat(7,minmax(0,1fr));gap:4px}
+  .cell{height:52px;padding:3px 4px}
+  .ev{grid-template-columns:14px minmax(0,1fr)}
+  .ev time{grid-column:2}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Activation Playbook Simulator</h1>
+      <p>Pick one of the 16 sample customers, or edit the behavior yourself, and watch the Day 0-28 automated playbook decide what to send, hold back, and escalate.</p>
+    </div>
+    <div class="legend" aria-label="Legend">
+      <span><i class="sw" style="background:var(--green)"></i>Green</span>
+      <span><i class="sw" style="background:var(--amber)"></i>Yellow</span>
+      <span><i class="sw" style="background:var(--red)"></i>Red</span>
+      <span><i class="sw" style="background:var(--setup-bg);border:1px solid var(--line)"></i>Setting up</span>
+    </div>
+  </header>
+
+  <div class="app">
+    <aside class="rail" aria-label="Sample customers">
+      <h2>Sample customers</h2>
+      <div id="rail"></div>
+      <p class="railnote">Dot shows the observed Day-30 health from the assignment data.</p>
+    </aside>
+
+    <section class="stage">
+      <div class="card head" id="head"></div>
+
+      <details class="card" id="inputs">
+        <summary>Change this account's behavior</summary>
+        <div class="fields" id="fields">
+          <div class="fld"><span class="t">Plan</span>
+            <div class="row">
+              <label class="chk"><input type="radio" name="plan" value="Starter"> Starter</label>
+              <label class="chk"><input type="radio" name="plan" value="Growth"> Growth</label>
+            </div>
+          </div>
+          <div class="fld"><label class="t" for="fF">Day of first successful run</label>
+            <input type="range" id="fF" min="0" max="14" step="1"><output id="oF"></output>
+          </div>
+          <div class="fld"><span class="t">Integration</span>
+            <label class="chk"><input type="checkbox" id="fInteg"> CRM connected</label>
+            <input type="range" id="fIntegDay" min="0" max="20" step="1" aria-label="Day the CRM is connected"><output id="oIntegDay"></output>
+          </div>
+          <div class="fld"><span class="t">Teammate</span>
+            <label class="chk"><input type="checkbox" id="fInv"> Invites a teammate</label>
+            <input type="range" id="fInviteDay" min="0" max="20" step="1" aria-label="Day the invite is sent"><output id="oInviteDay"></output>
+            <label class="chk"><input type="checkbox" id="fTeam"> Teammate runs lists</label>
+          </div>
+          <div class="fld"><span class="t">Weeks with meaningful use</span>
+            <div class="row">
+              <label class="chk"><input type="checkbox" id="wk1"> Wk 1</label>
+              <label class="chk"><input type="checkbox" id="wk2"> Wk 2</label>
+              <label class="chk"><input type="checkbox" id="wk3"> Wk 3</label>
+              <label class="chk"><input type="checkbox" id="wk4"> Wk 4</label>
+            </div>
+          </div>
+          <div class="fld"><span class="t">Channels and consent</span>
+            <label class="chk"><input type="checkbox" id="fSlack"> Slack or Teams connected</label>
+            <label class="chk"><input type="checkbox" id="fSms"> Opted in to SMS</label>
+            <label class="chk"><input type="checkbox" id="fOptin"> Opted in to weekly recap and alerts</label>
+          </div>
+        </div>
+        <p class="foot">Week flags are mapped to representative days, so the calendar is an illustration of the logic, not a reconstruction of real sessions.</p>
+      </details>
+
+      <div class="cols">
+        <div class="card">
+          <h2>Journey calendar</h2>
+          <div class="cal" id="cal" role="group" aria-label="Days 0 to 28"></div>
+          <div class="scrub">
+            <button class="btn primary" id="play" type="button">Play journey</button>
+            <input type="range" id="scrub" min="0" max="28" step="1" value="0" aria-label="Simulated day">
+            <output id="scrubOut"></output>
+          </div>
+          <div class="keys">
+            <span><i class="sw" style="background:var(--ink)"></i>Meaningful activity</span>
+            <span><i class="dots" style="display:inline-flex;position:static"><i class="pro"></i></i>Message sent</span>
+            <span><i class="dots" style="display:inline-flex;position:static"><i></i></i>In-product prompt</span>
+            <span><i class="dots" style="display:inline-flex;position:static"><i class="held"></i></i>Held by a guardrail</span>
+            <span><i class="dots" style="display:inline-flex;position:static"><i class="peak"></i></i>Coordinated recovery</span>
+          </div>
+        </div>
+        <div class="card" id="state"></div>
+      </div>
+
+      <div class="card">
+        <div class="logh">
+          <h2>What the system did</h2>
+          <div class="filters" id="filters">
+            <button type="button" data-f="all" aria-pressed="true">Everything</button>
+            <button type="button" data-f="sent" aria-pressed="false">Sent</button>
+            <button type="button" data-f="held" aria-pressed="false">Held back</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:6px">Rows after the selected day are dimmed. Held means a guardrail stopped it. Skipped means its condition was not met.</p>
+        <div class="log" id="log"></div>
+      </div>
+
+      <div class="cols">
+        <div class="card">
+          <h2>The message in Part C</h2>
+          <div class="tabs" id="mtabs">
+            <button type="button" data-m="email" aria-pressed="true">Email</button>
+            <button type="button" data-m="inapp" aria-pressed="false">In-app card</button>
+          </div>
+          <div id="preview"></div>
+        </div>
+        <div class="card">
+          <h2>Day-28 scorecard</h2>
+          <div class="score" id="score"></div>
+          <p class="foot" id="scoreNote"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>All 16 customers through the same playbook</h2>
+        <p class="hint" style="margin-top:6px">Each row uses the sample data as given. Click a row to open it above.</p>
+        <div class="tw"><table id="cohort"></table></div>
+        <p class="foot">The north star is meaningful use in at least 3 of the first 4 weeks, with a second user running lists. Health color picks the next intervention. It is not a prediction, and 16 illustrative rows prove nothing about causation.</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ===== sample data from the assignment ===== */
+var RAW=[
+ ['ACME Co','Growth',1,1,1,[1,1,1,1],'Green','Invited 3 teammates in week 1; weekly scheduled reports'],
+ ['Nimbus Labs','Starter',1,1,0,[1,1,0,0],'Yellow','Single admin user, no teammates invited'],
+ ['Harbor Metrics','Starter',3,0,0,[1,0,0,0],'Red','Never connected an integration; no return visits'],
+ ['Quill Systems','Growth',2,1,1,[1,1,1,1],'Green','Integration on day 2, 2 teammates invited'],
+ ['Driftwood Analytics','Starter',6,0,0,[1,0,0,0],'Red','First value took 6 days; dropped immediately after'],
+ ['Palisade Data','Growth',1,1,0,[1,1,1,0],'Yellow','Integration connected but solo user; champion went on leave'],
+ ['Vantage Point','Starter',2,0,1,[1,1,0,0],'Yellow','No integration, but invited a teammate early; still faded'],
+ ['Crestline Co','Growth',9,1,1,[0,1,1,1],'Green','Slow start, but integration and invite pulled it back by week 2'],
+ ['Fathom Insights','Starter',1,1,0,[1,0,0,0],'Red','Fast first value, integration connected, but solo user'],
+ ['Switchback Labs','Growth',4,0,1,[1,1,1,1],'Green','No integration yet, but 2 teammates active weekly'],
+ ['Northbound Growth','Starter',1,1,0,[1,1,0,0],'Yellow','Integration on day 1, no teammates, stalled in week 3'],
+ ['Ridgeline Co','Growth',12,0,0,[0,0,1,0],'Red','Slow first value, one-off spike in week 3, then silence'],
+ ['Alluvia Tech','Starter',2,1,1,[1,1,1,1],'Green','Fast value, integration and teammate invite'],
+ ['Overlook Data','Growth',5,1,0,[1,1,0,0],'Yellow','Integration connected, admin-only account'],
+ ['Brackish Co','Starter',7,0,0,[1,0,0,0],'Red','Slow first value, no integration, single login then gone'],
+ ['Tidewater GTM','Growth',3,1,1,[1,1,1,1],'Green','Integration and teammate invite within the first week']
+];
+var CUST=RAW.map(function(a){return {name:a[0],plan:a[1],F:a[2],integ:!!a[3],inv:!!a[4],wk:a[5],obs:a[6],note:a[7]};});
+function mk(s){
+  return {name:s.name,plan:s.plan,F:s.F,integ:s.integ,integDay:s.integ?s.F:Math.min(s.F+2,14),
+    inv:s.inv,inviteDay:Math.min(s.F+3,6),team:s.inv&&s.obs==='Green',wk:s.wk.slice(),
+    slack:true,sms:false,optin:true,obs:s.obs,note:s.note};
+}
+var LEVELS=['','Fix the friction','Show personal value','Optional incentive or test arm','Coordinated recovery','Final low-pressure note'];
+
+//<sim>
+function hashName(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))>>>0;}return h;}
+function sim(c){
+  var F=c.F,H=hashName(c.name),crm='HubSpot';
+  var A={};A[F]=1;
+  c.wk.forEach(function(on,i){
+    if(!on)return;
+    var ds=i===0?[F,F+2,F+4].map(function(d){return Math.min(d,6);}):[7*i+1,7*i+3,7*i+5];
+    ds.forEach(function(d){A[Math.max(F,d)]=1;});
+  });
+  var acts=Object.keys(A).map(Number).filter(function(d){return d<=28;}).sort(function(a,b){return a-b;});
+  var st=[],t;
+  for(t=0;t<=28;t++){
+    var firstRun=t>=F;
+    var integ=c.integ&&t>=c.integDay;
+    var invited=c.inv&&t>=c.inviteDay;
+    var accepted=c.inv&&t>=c.inviteDay+1;
+    var teamRun=c.inv&&c.team&&t>=c.inviteDay+2;
+    var past=acts.filter(function(d){return d<=t;});
+    var last=past.length?past[past.length-1]:null;
+    var idle=last===null?null:t-last;
+    var repeat=past.length>=2;
+    var h,why;
+    if(!firstRun){ if(t>=7){h='Red';why='No first run by Day 7';} else {h='Setup';why='Getting to the first run';} }
+    else if(teamRun&&repeat&&idle<5){h='Green';why='First value, repeat use, and a second user running lists';}
+    else if(idle>=7){h='Red';why=idle+' days with no meaningful activity';}
+    else if(idle>=5){h='Yellow';why='Activity weakening for '+idle+' days';}
+    else if(t>=7){h='Yellow';why=!teamRun?'No second user running lists yet':'Recurring workflow not established';}
+    else {h='Onboarding';why='First week in progress';}
+    st.push({t:t,firstRun:firstRun,integ:integ,invited:invited,accepted:accepted,teamRun:teamRun,last:last,idle:idle,repeat:repeat,h:h,why:why});
+  }
+  function S(d){return st[Math.min(Math.max(d,0),28)];}
+  var E=[],seq=0;
+  function add(o){
+    if(o.day>28)return;
+    var d={status:'sent',proactive:false,prio:9,lvl:0,channels:['In-app'],time:'on action',seg:'',trig:'',title:'',body:'',esc:'',reason:'',sys:false,tag:'',i:seq++};
+    for(var k in o)d[k]=o[k];
+    E.push(d);
+  }
+  function cond(ok,o,why){ if(ok)add(o); else if(why){o.status='skipped';o.reason=why;add(o);} }
+  function noInv(d){return !(c.inv&&c.inviteDay<d);}
+
+  add({day:0,time:'on signup',trig:'Signup completed',seg:'All new workspaces',channels:['In-app'],title:'Setup checklist opens',
+    body:'Asks for use case, CRM and goal, then offers a starter template and a "do this later" path.',esc:'If setup stays incomplete after 10 minutes the checklist persists. No cross-channel pile-on.'});
+  if(F>0)add({day:0,time:'+10 min idle',trig:'Session idle 10 min, no list',seg:'All',channels:['In-app','AI support'],title:'AI drafts your first list',
+    body:'Builds a draft list from your use case, explains where the data comes from, and gives one button: Run first list.',esc:'If a run fails, the AI diagnoses filters and credits and offers 2-3 broader options.'});
+  [1,3,5].forEach(function(d){ if(d<F)add({day:d,time:'09:30',trig:'No first run after signup',seg:'No first value yet',channels:['Email','In-app'],proactive:true,prio:5,lvl:1,
+    title:'Your starter list is saved',body:'Previews the saved starter workflow with one link to resume where you stopped.',esc:'Day 7 turns Red only if there is still no value and recovery attempts failed.'}); });
+  add({day:F,time:'on first run',trig:'First successful run',seg:'All',channels:['In-app'],title:'Outcome summary and one next step',
+    body:'Shows what the run produced, then offers CRM push and share-list as two separate one-click steps.',esc:'If there is no next action the checklist stays on workspace home.'});
+  cond(!S(F).integ,{day:F,time:'on first run',trig:'First run, integration missing',seg:'Integration not connected',channels:['In-app'],
+    title:'Connect '+crm+' to push these contacts',body:'Offers CRM authorization, a forwardable admin request if permissions are missing, and keeps CSV export available.',esc:'Never a prerequisite for first value.',lvl:1},'Integration already connected');
+  cond(F+1<=28&&!S(F+1).integ,{day:F+1,time:'10:00',trig:'First run, integration still missing',seg:'Integration not connected',channels:['Email'],proactive:true,prio:4,lvl:1,
+    title:'Connect '+crm+' in two minutes',body:'Same ask by email, with the admin request link for anyone without permissions.',esc:'Day 3 asks what is blocking the connection.'},'Integration connected by now');
+  cond(!S(F+3).integ,{day:F+3,time:'on next session',trig:'Day 3 after first run, integration missing',seg:'Integration not connected',channels:['In-app'],lvl:1,
+    title:'What is blocking the CRM connection?',body:'Four answers: no admin access, no CRM, later, or a technical error. The answer picks the help shown next.',esc:'CSV export stays open the whole time.'},'Integration connected');
+  var d5=Math.max(5,F+1);
+  cond(d5<=28&&!S(d5).integ,{day:d5,time:'on export or push',trig:'Day 5, integration still missing',seg:'Active, integration feasible',channels:['In-app'],lvl:1,
+    title:'Recommended next step: connect your CRM',body:'Shown at the moment of export or push. CSV stays available.',esc:'Export and first value are never restricted.'},'Integration connected');
+  cond(noInv(F+2),{day:F+2,time:'on next session',trig:'Day 2 after first run, no invite',seg:'All',channels:['In-app'],
+    title:'Who will act on this list with you?',body:'A workspace card previews the shared list and asks you to invite one colleague.',esc:'If ignored, the Day 3 solo-user email goes out.'},'Teammate already invited');
+  if(noInv(F+3)){
+    if(S(F+3).integ)add({day:F+3,time:'09:00',tag:'partC',trig:'Day 3 after first run, still solo',seg:'Integration connected',channels:['Email','In-app'],proactive:true,prio:2,lvl:1,
+      title:'Your list is ready for someone to work',body:'Invites whoever will call or email these contacts. One button and an easy opt-out. This is the Part C message.',esc:'Day 6: a one-click prewritten invite.'});
+    else add({day:F+3,time:'09:00',trig:'Day 3 after first run, solo and no integration',seg:'Integration not connected',channels:['Email','In-app'],proactive:true,prio:3,lvl:1,
+      title:'Share this list as a CSV with the person who will follow up',body:'Resolves the integration blocker first and shows a CSV-based way to collaborate meanwhile.',esc:'Continues only on the missing step. Duplicate asks are suppressed.'});
+  } else add({day:F+3,tag:'partC',status:'skipped',reason:'Teammate already invited',trig:'Day 3 after first run, still solo',seg:'Integration connected',channels:['Email','In-app'],
+    title:'Your list is ready for someone to work',body:'The Part C message.',esc:''});
+  var d6=Math.max(6,F+4);
+  cond(d6<=28&&!S(d6).accepted,{day:d6,time:'11:00',trig:'Day 6, no accepted invite',seg:'Active workspace',channels:c.slack?['In-app','Slack/Teams']:['In-app'],proactive:c.slack,prio:3,lvl:1,
+    title:'Send a ready-made invite in one click',body:'A prewritten invite for the colleague who will act on the leads. An optional workspace incentive follows only after economics approval.',esc:'If an invite is not accepted the invitee gets reminders at +48 hours and +5 days.'},'Teammate already accepted');
+  if(c.inv){
+    var a=c.inviteDay+1;
+    cond(a+1<=28&&!S(a+1).teamRun,{day:a+1,time:'on next session',trig:'Invite accepted, no second-user run',seg:'Invitee',channels:['In-app'],
+      title:'Your list is open and waiting',body:'Opens the shared list with one action: run it or review it.',esc:'Collaboration only counts once the second user runs a list.'},'Second user already ran the list');
+    cond(a+3<=28&&!S(a+3).teamRun,{day:a+3,time:'10:30',trig:'Invite accepted, still no second-user run',seg:'Invitee',channels:['Email'],proactive:true,prio:4,lvl:1,
+      title:'Your teammate has not run the list yet',body:'Explains the team workflow in one line and deep-links to the shared list.',esc:'If still idle, health turns Yellow and the Day 7 nudge applies.'},'Second user already ran the list');
+  }
+  for(t=1;t<=28;t++){
+    if(st[t].h!==st[t-1].h&&!(/^(Setup|Onboarding)$/.test(st[t].h)&&/^(Setup|Onboarding)$/.test(st[t-1].h)))
+      add({day:t,time:'daily check',sys:true,trig:'Daily health update',seg:'System',channels:['System'],title:'Health: '+st[t-1].h+' to '+st[t].h,body:st[t].why+'.',esc:'The color only picks the next intervention. It is not ground truth.'});
+  }
+  var s7=S(7);
+  if(s7.h==='Yellow'){
+    var m;
+    if(s7.idle>=5)m=['Pick up where you left off','Activity has slowed. One link back to your saved list.'];
+    else if(!s7.invited)m=['Invite the person who will act on your leads','No teammate yet. One step: invite them to your list.'];
+    else if(!s7.teamRun)m=['Get your teammate running the list','Invite sent. One step: open the shared list together.'];
+    else m=['Connect your CRM to keep leads flowing','One step: connect '+crm+'. CSV stays available.'];
+    add({day:7,time:'09:30',trig:'Day 7, first value but one adoption gap',seg:'Yellow, personalized by the missing step',channels:['In-app','Email'],proactive:true,prio:3,lvl:1,
+      title:m[0],body:m[1],esc:'If unresolved by Day 10: personalized value and an optional approved incentive.'});
+  }
+  var peakDay=null,finalDay=null,reds=[];
+  for(t=1;t<=28;t++){ if(st[t].h==='Red'&&st[t-1].h!=='Red')reds.push(t); }
+  reds.forEach(function(r){
+    var habit=st[r].firstRun&&r>=15&&r<=21;
+    add({day:r,time:'09:30',trig:habit?'Day 15-21, a full week with no meaningful run':(st[r].firstRun?'7 days inactive':'No first value by Day 7'),seg:'Red, any tier',channels:['Email','In-app on return'],proactive:true,prio:3,lvl:2,
+      title:habit?'Your list has refreshed since you last ran it':'Fresh examples from your saved list',
+      body:habit?'One-click rerun of the list you built, now with newer contacts.':'Shows examples relevant to the list you saved, with one button to resume.',esc:'No return within 48 hours triggers the coordinated reactivation.'});
+    var p=r+2;
+    if(p<=28){
+      var recovered=st[p].h!=='Red'||acts.some(function(d){return d>r&&d<=p;});
+      var chans=['Email','In-app'];
+      if(c.slack)chans.push('Slack/Teams');
+      if(c.sms)chans.push('SMS (opted in)');
+      var base={day:p,time:'09:00',tag:'peak',trig:'Peak Red escalation: no recovery 48h after Red',seg:'Red, not recovered, consent checked',channels:chans,proactive:true,prio:1,lvl:4,
+        title:'One coordinated recovery across channels',body:'A value snapshot, a one-click resume and one blocker question, sent same day to the relevant workspace users within each person’s limits.',
+        esc:'Deduplicated across channels. Stops at once on recovery, reply, unsubscribe or incident. One burst per workspace per 14 days.'};
+      if(recovered){base.status='held';base.reason='The account came back before 48 hours, so the burst was cancelled.';base.lvl=0;add(base);}
+      else if(peakDay!==null&&p-peakDay<14){base.status='held';base.reason='One coordinated burst per workspace per 14 days.';base.lvl=0;add(base);}
+      else {add(base);peakDay=p;}
+    }
+  });
+  cond(S(8).teamRun&&S(8).repeat,{day:8,time:'14:00',trig:'Day 8, repeat use with a second user',seg:'Repeat-capable account',channels:['In-app','Email'],proactive:true,prio:6,
+    title:'Save this search as a signal and get a weekly digest',body:'Shows a preview of the digest. Opt-in only. Never switched on automatically.',esc:'If declined, asks for a preferred cadence.'},
+    S(8).firstRun?'No repeat use with a second user yet':null);
+  if(S(10).h==='Yellow')add({day:10,time:'on next session',trig:'Day 10, Yellow persists',seg:'One missing step',channels:c.slack?['In-app','Slack/Teams']:['In-app'],proactive:!!c.slack,prio:4,lvl:2,
+    title:'A two-minute fix for the missing step',body:'A guided fix, contextual help, or a prewritten admin request.',esc:'At Day 14 eligible accounts enter the randomized arm.'});
+  cond(S(14).firstRun&&S(14).h!=='Green',{day:14,time:'14:00',trig:'Day 14, no recurring workflow',seg:'First value, no saved signal or report',channels:['In-app','Email'],proactive:true,prio:6,
+    title:'Schedule a weekly digest',body:'A preview and a clear opt-in. Never on by default.',esc:'If not enabled, continues based on the actual use case.'},
+    S(14).firstRun?'Already running a recurring workflow':null);
+  if(S(14).h==='Yellow'){
+    var elig=S(14).idle<5,arms=['Control (no change)','Soft reveal cap','Feature or template unlock'],arm=arms[H%3];
+    var ad=['This workspace is the comparison group and sees no change.','A soft, reversible daily reveal cap. The banner says exactly what clears it. Never blocks first value, export or CRM push.','Unlocks an advanced template or feature as a nudge toward the missing step.'][H%3];
+    add({day:14,time:'on next session',trig:'Day 14, Yellow persists (experiment arm)',seg:'Yellow, still active, randomized by workspace',channels:['In-app','Email'],lvl:3,
+      status:elig?'sent':'skipped',reason:elig?'':'Not eligible: the account has gone quiet. Caps only apply to workspaces that are still active.',
+      title:'Day-14 test arm: '+arm,body:ad,esc:'Primary metric: Day-28 repeat activation. Stops if complaints, refunds or support tickets breach the pre-set limits.'});
+  }
+  [15,22].forEach(function(d){
+    var s=S(d),active14=s.last!==null&&d-s.last<=14;
+    var o={day:d,time:'Mon 09:00',trig:'Weekly recap',seg:'Meaningful run in the last 14 days',channels:['Email'],proactive:true,prio:5,
+      title:'Your weekly recap',body:'Contacts revealed, signals fired, and what teammates did last week. One button: open this week’s list.',esc:'Opt-in only. Suppressed if the recap would be empty.'};
+    if(!c.optin){o.status='skipped';o.reason='Not opted in. The recap is opt-in only.';}
+    else if(s.h==='Red'){o.status='skipped';o.reason='Account is Red, so routine digests pause while recovery runs.';}
+    else if(!active14){o.status='skipped';o.reason='No meaningful run in the last 14 days.';}
+    add(o);
+  });
+  [16,23].forEach(function(d){
+    var n=(H+d*5)%13,o={day:d,time:'10:00',trig:'Saved signal fires new matches',seg:'Opted-in workspaces',channels:['Email','In-app'],proactive:true,prio:5,
+      title:n+' new contacts match your signal',body:'One button opens the new matches. At most once a week.',esc:'Weeks with no matches send nothing.'};
+    if(!c.optin||!S(d).firstRun){o.status='skipped';o.reason='No saved signal or not opted in.';}
+    else if(S(d).h==='Red'){o.status='skipped';o.reason='Account is Red, so routine alerts pause while recovery runs.';o.title='New matches for your signal';}
+    else if(n<3){o.status='skipped';o.reason='No new matches this week, so nothing is sent.';o.title='New matches for your signal';}
+    add(o);
+  });
+  cond(S(21).teamRun&&S(21).idle!==null&&S(21).idle<5,{day:21,time:'on next session',trig:'Day 21, two users active',seg:'Second user active, no third role invited',channels:['In-app'],
+    title:'Share a saved view with another role',body:'Offers a manager or ops colleague a saved view. One ask, no repeat after an invite.',esc:''},null);
+  if(S(21).h==='Red'){
+    if(peakDay!==null&&peakDay<21){finalDay=21;add({day:21,time:'09:00',trig:'Day 21, no recovery after the peak step',seg:'Red, still inactive',channels:['Email'],proactive:true,prio:2,lvl:5,
+      title:'No pressure: your workflow is saved',body:'A final low-pressure note with the saved-workflow link and an option to pause onboarding messages.',esc:'No more multi-channel escalation. Routine nudges are suppressed for 14 days.'});}
+    else add({day:21,status:'skipped',reason:'The coordinated recovery has not run before Day 21, so the final note waits.',trig:'Day 21, no recovery after the peak step',seg:'Red, still inactive',channels:['Email'],title:'No pressure: your workflow is saved',body:'',esc:''});
+  }
+  cond(S(28).firstRun&&S(28).idle!==null&&S(28).idle<7,{day:28,time:'on next session',trig:'Day 28 lock-in',seg:'All active workspaces',channels:['In-app'],
+    title:'Your four-week summary',body:'Results from four weeks, plus a prompt to turn on the weekly recap if it is off.',esc:'Opt-in only.'},null);
+  var weeks={};acts.forEach(function(d){if(d<28)weeks[Math.floor(d/7)]=1;});
+  var wkN=Object.keys(weeks).length,team28=S(28).teamRun,met=wkN>=3&&team28;
+  add({day:28,time:'end of day',sys:true,trig:'Day 28 cohort measurement',seg:'System',channels:['System'],title:'Day-28 repeat activation: '+(met?'met':'not met'),
+    body:wkN+' of 4 weeks with meaningful use; second user '+(team28?'ran lists.':'did not run lists.'),esc:'Reported by tier and use case, with missing events flagged.'});
+
+  function ord(e){var m=/^(\d\d):(\d\d)/.exec(e.time);if(m)return +m[1]+ +m[2]/60;if(e.sys)return e.time==='end of day'?23:8.2;return 8;}
+  E.sort(function(a,b){return a.day-b.day||ord(a)-ord(b)||a.i-b.i;});
+  var byDay={};
+  E.forEach(function(e){ if(e.status==='sent'&&e.proactive){(byDay[e.day]=byDay[e.day]||[]).push(e);} });
+  Object.keys(byDay).forEach(function(d){
+    var l=byDay[d].slice().sort(function(a,b){return a.prio-b.prio||a.i-b.i;});
+    for(var k=1;k<l.length;k++){l[k].status='held';l[k].lvl=0;l[k].reason='Daily cap: one proactive message per user per 24 hours. “'+l[0].title+'” went first.';}
+  });
+  if(finalDay!==null)E.forEach(function(e){
+    if(e.status==='sent'&&e.proactive&&e.day>finalDay&&e.day<finalDay+14&&e.lvl<4){e.status='held';e.lvl=0;e.reason='Routine nudges are suppressed for 14 days after the final note.';}
+  });
+  var sent=0,held=0,skipped=0,maxPer=0,level=0,per={};
+  E.forEach(function(e){
+    if(e.sys)return;
+    if(e.status==='sent'){ if(e.proactive){sent++;per[e.day]=(per[e.day]||0)+1;maxPer=Math.max(maxPer,per[e.day]);} if(e.lvl>level)level=e.lvl; }
+    else if(e.status==='held')held++; else skipped++;
+  });
+  return {ev:E,st:st,acts:acts,ns:{met:met,weeks:wkN,team:team28},peakDay:peakDay,finalDay:finalDay,stats:{sent:sent,held:held,skipped:skipped,maxPer:maxPer},level:level,H:H};
+}
+//</sim>
+
+/* ===== UI ===== */
+var $=function(id){return document.getElementById(id);};
+var cur=null,curIdx=0,dirty=false,R=null,selDay=0,filter='all',mtab='email',timer=null;
+var COHORT=CUST.map(function(s){return sim(mk(s));});
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function hcls(h){return (h==='Setup'||h==='Onboarding')?'Setup':h;}
+
+function load(i){curIdx=i;cur=mk(CUST[i]);dirty=false;selDay=0;stop();refresh(true);}
+function refresh(sync){R=sim(cur);if(sync)syncFields();render();}
+
+function renderRail(){
+  $('rail').innerHTML=CUST.map(function(s,i){
+    return '<button type="button" class="cust" data-i="'+i+'" aria-pressed="'+(i===curIdx)+'"><i class="dot '+s.obs+'"></i><span>'+esc(s.name)+'</span><small>'+s.plan+'</small></button>';
+  }).join('');
+}
+function renderHead(){
+  var f=CUST[curIdx];
+  $('head').innerHTML='<div><h2>'+esc(cur.name)+'</h2><div class="meta"><span class="pill plain">'+cur.plan+'</span><span class="pill '+f.obs+'">Observed Day 30: '+f.obs+'</span>'+(dirty?'<span class="pill plain">Edited</span>':'')+'</div><p class="note">'+esc(f.note)+'</p></div>'+
+    '<div class="btns"><button class="btn" type="button" id="reset">Reset to sample data</button></div>';
+}
+function dotsFor(d){
+  var out='';
+  R.ev.forEach(function(e){
+    if(e.day!==d||e.sys)return;
+    if(e.status==='held')out+='<i class="held" title="Held"></i>';
+    else if(e.status==='sent')out+=e.tag==='peak'?'<i class="peak" title="Coordinated recovery"></i>':(e.proactive?'<i class="pro"></i>':'<i></i>');
+  });
+  return out;
+}
+function renderCal(){
+  var html='',w,i;
+  for(w=0;w<5;w++){
+    html+='<div class="wl">'+(w<4?'Wk '+(w+1):'Day 28')+'</div>';
+    for(i=0;i<7;i++){
+      var d=w*7+i;
+      if(d>28){html+='<div></div>';continue;}
+      var s=R.st[d],isAct=R.acts.indexOf(d)>-1;
+      html+='<button type="button" class="cell '+hcls(s.h)+'" data-d="'+d+'" aria-pressed="'+(d===selDay)+'" aria-label="Day '+d+', '+s.h+'"><span class="dn">'+d+'</span>'+(isAct?'<span class="act" title="Meaningful activity"></span>':'')+'<span class="dots">'+dotsFor(d)+'</span></button>';
+    }
+  }
+  $('cal').innerHTML=html;
+  $('scrub').value=selDay;$('scrubOut').textContent='Day '+selDay;
+}
+function renderState(){
+  var s=R.st[selDay],f=cur;
+  var collab=s.teamRun?'Second user ran a list':s.accepted?'Invite accepted, no run yet':s.invited?'Invite sent':'No teammate invited';
+  var next=null;
+  for(var i=0;i<R.ev.length;i++){var e=R.ev[i];if(e.day>selDay&&e.status==='sent'&&!e.sys){next=e;break;}}
+  var lv=R.level;
+  var sentLv={};R.ev.forEach(function(e){if(e.status==='sent'&&e.day<=selDay&&e.lvl)sentLv[e.lvl]=1;});
+  var lad='';for(var k=1;k<=5;k++){lad+='<li class="'+(sentLv[k]?'on':'')+'"><b>'+k+'</b><span>'+LEVELS[k]+'</span></li>';}
+  $('state').innerHTML='<h2>State on Day '+selDay+'</h2><dl class="kv">'+
+    '<dt>Health</dt><dd><span class="pill '+hcls(s.h)+'">'+s.h+'</span> <span class="hint">'+esc(s.why)+'</span></dd>'+
+    '<dt>First value</dt><dd>'+(s.firstRun?'Done on Day '+f.F:'Not yet')+'</dd>'+
+    '<dt>Integration</dt><dd>'+(s.integ?'Connected':(f.integ?'Not yet':'Not connected'))+'</dd>'+
+    '<dt>Collaboration</dt><dd>'+collab+'</dd>'+
+    '<dt>Recent activity</dt><dd>'+(s.last===null?'None yet':(s.idle===0?'Active today':s.idle+' days since last meaningful use'))+'</dd></dl>'+
+    '<div class="next"><b>Next system action</b>'+(next?'Day '+next.day+': '+esc(next.title)+' <span class="hint">('+next.channels.join(' + ')+')</span>':'Nothing else scheduled in the 28 days.')+'</div>'+
+    '<h3 style="margin-top:16px">Escalation reached so far</h3><ol class="ladder">'+lad+'</ol>';
+}
+function evHtml(e){
+  var cls='ev '+(e.sys?'sys ':'')+e.status+(e.day>selDay?' ahead':'');
+  return '<article class="'+cls+'"><span class="mark"></span><div><div class="evt"><strong>'+esc(e.title)+'</strong><span class="chips">'+e.channels.map(function(c){return '<span class="chip">'+esc(c)+'</span>';}).join('')+
+    (e.status!=='sent'?'<span class="chip">'+(e.status==='held'?'Held':'Skipped')+'</span>':'')+'</span></div>'+
+    '<p class="trig">'+esc(e.trig)+(e.seg?' · '+esc(e.seg):'')+'</p>'+(e.body?'<p class="body">'+esc(e.body)+'</p>':'')+(e.esc&&e.status==='sent'?'<p class="esc">If it does not land: '+esc(e.esc)+'</p>':'')+(e.reason?'<p class="why">'+esc(e.reason)+'</p>':'')+'</div><time>'+esc(e.time)+'</time></article>';
+}
+function renderLog(){
+  var list=R.ev.filter(function(e){
+    if(filter==='sent')return e.status==='sent'&&!e.sys;
+    if(filter==='held')return e.status==='held'||e.status==='skipped';
+    return true;
+  });
+  var html='',lastD=-1;
+  list.forEach(function(e){
+    if(e.day!==lastD){lastD=e.day;html+='<h3 class="dayh">Day '+e.day+' <small>Week '+(Math.min(Math.floor(e.day/7),3)+1)+(e.day===28?' close':'')+'</small></h3>';}
+    html+=evHtml(e);
+  });
+  $('log').innerHTML=html||'<p class="hint">Nothing in this view.</p>';
+}
+function renderPreview(){
+  var c=cur,list='Series B fintech CFOs',n=120+(R.H%90),pc=null;
+  R.ev.forEach(function(e){if(e.tag==='partC')pc=e;});
+  var status;
+  if(pc&&pc.status==='sent')status='Fires on Day '+pc.day+' for this account (3 days after the first run, still solo, integration connected).';
+  else if(pc)status='Not sent for this account. '+pc.reason+'.';
+  else status='Not used for this account. With no CRM connected on Day '+(c.F+3)+' it gets the CSV-sharing variant instead.';
+  var intro='Your '+list+' list has '+n+' revealed contacts, and HubSpot is connected. Right now, you’re the only one who can see it.';
+  var html='<div class="status">'+esc(status)+' Preview uses sample data.</div>';
+  if(mtab==='email'){
+    html+='<div class="mail"><div class="mh"><strong>Your '+list+' list is ready for someone to work</strong><small>'+n+' contacts revealed. Who’s following up?</small></div><div class="mb">'+
+      '<p>Hi Priya,</p><p>'+intro+'</p><p>Whoever will actually call or email these people, whether that’s an SDR, a rep, or a founder, should be in here too. Invite them and they’ll land on this list, ready to work it.</p>'+
+      '<span class="cta">Invite a teammate</span><p class="alt">Takes about 30 seconds. Not ready? <u>Keep working solo</u> and we’ll check in later.</p><p>The Fairground team</p></div></div>';
+  } else {
+    html+='<div class="inapp"><strong>'+n+' contacts are waiting. Who’s working them with you?</strong><p class="hint">Companion card shown in the workspace on the same day.</p><div class="row"><span class="cta">Invite a teammate</span><span class="btn">Keep working solo</span></div></div>';
+  }
+  $('preview').innerHTML=html;
+  Array.prototype.forEach.call($('mtabs').children,function(b){b.setAttribute('aria-pressed',String(b.dataset.m===mtab));});
+}
+function renderScore(){
+  var r=R,f=CUST[curIdx];
+  var lvlName=r.level?LEVELS[r.level]:'None needed';
+  $('score').innerHTML=
+    '<div class="stat"><b class="'+(r.ns.met?'ok':'no')+'">'+(r.ns.met?'Met':'Not met')+'</b><span>North star: '+r.ns.weeks+' of 4 weeks active, second user '+(r.ns.team?'running lists':'not running lists')+'</span></div>'+
+    '<div class="stat"><b>'+r.stats.sent+'</b><span>Proactive messages sent in 28 days (most in one day: '+r.stats.maxPer+')</span></div>'+
+    '<div class="stat"><b>'+r.stats.held+'</b><span>Held by a guardrail, '+r.stats.skipped+' skipped for unmet conditions</span></div>'+
+    '<div class="stat"><b style="font-size:17px;line-height:1.3">'+lvlName+'</b><span>Highest escalation step that actually went out</span></div>'+
+    '<div class="stat"><b class="" style="font-size:17px;line-height:1.3">'+R.st[28].h+'</b><span>Playbook health on Day 28 (sample label: '+f.obs+')</span></div>';
+  $('scoreNote').textContent=dirty?'Edited account: the sample label above belongs to the original data.':'Observed labels come from the assignment table. The playbook color is a working state, so the two can differ.';
+}
+function renderCohort(){
+  var h='<thead><tr><th>Customer</th><th>Plan</th><th>Observed</th><th>Day-28 state</th><th>Sent</th><th>Held</th><th>Top escalation</th><th>North star</th></tr></thead><tbody>';
+  CUST.forEach(function(s,i){
+    var r=COHORT[i];
+    h+='<tr data-i="'+i+'" class="'+(i===curIdx?'sel':'')+'"><td>'+esc(s.name)+'</td><td>'+s.plan+'</td><td><span class="pill '+s.obs+'">'+s.obs+'</span></td><td><span class="pill '+hcls(r.st[28].h)+'">'+r.st[28].h+'</span></td><td>'+r.stats.sent+'</td><td>'+r.stats.held+'</td><td>'+(r.level?r.level+'. '+LEVELS[r.level]:'None')+'</td><td class="'+(r.ns.met?'ok':'no')+'">'+(r.ns.met?'Met':'Not met')+'</td></tr>';
+  });
+  $('cohort').innerHTML=h+'</tbody>';
+}
+function render(){renderRail();renderHead();renderCal();renderState();renderLog();renderPreview();renderScore();renderCohort();}
+
+/* inputs */
+function syncFields(){
+  var c=cur;
+  document.querySelector('input[name=plan][value='+c.plan+']').checked=true;
+  $('fF').value=c.F;$('fInteg').checked=c.integ;$('fIntegDay').value=c.integDay;$('fInv').checked=c.inv;$('fInviteDay').value=c.inviteDay;$('fTeam').checked=c.team;
+  for(var i=0;i<4;i++)$('wk'+(i+1)).checked=!!c.wk[i];
+  $('fSlack').checked=c.slack;$('fSms').checked=c.sms;$('fOptin').checked=c.optin;
+  outs();
+}
+function outs(){
+  $('oF').textContent='Day '+cur.F;
+  $('oIntegDay').textContent=cur.integ?'Connected on Day '+cur.integDay:'Not connected';
+  $('oInviteDay').textContent=cur.inv?'Invite sent on Day '+cur.inviteDay:'No invite';
+  $('fIntegDay').disabled=!cur.integ;$('fInviteDay').disabled=!cur.inv;$('fTeam').disabled=!cur.inv;
+}
+function readFields(){
+  var c=cur;
+  c.plan=document.querySelector('input[name=plan]:checked').value;
+  c.F=+$('fF').value;c.integ=$('fInteg').checked;c.integDay=+$('fIntegDay').value;c.inv=$('fInv').checked;c.inviteDay=+$('fInviteDay').value;c.team=$('fTeam').checked;
+  c.wk=[1,2,3,4].map(function(i){return $('wk'+i).checked?1:0;});
+  c.slack=$('fSlack').checked;c.sms=$('fSms').checked;c.optin=$('fOptin').checked;
+}
+$('fields').addEventListener('input',function(){readFields();dirty=true;outs();refresh(false);});
+
+/* playback */
+function stop(){if(timer){clearInterval(timer);timer=null;}$('play').textContent='Play journey';}
+function play(){
+  if(timer){stop();return;}
+  if(selDay>=28)selDay=0;
+  $('play').textContent='Pause';
+  timer=setInterval(function(){
+    if(selDay>=28){stop();return;}
+    selDay++;renderCal();renderState();renderLog();
+  },420);
+}
+$('play').addEventListener('click',play);
+$('scrub').addEventListener('input',function(e){stop();selDay=+e.target.value;renderCal();renderState();renderLog();});
+$('cal').addEventListener('click',function(e){var b=e.target.closest('.cell');if(!b)return;stop();selDay=+b.dataset.d;renderCal();renderState();renderLog();});
+$('rail').addEventListener('click',function(e){var b=e.target.closest('.cust');if(b)load(+b.dataset.i);});
+$('cohort').addEventListener('click',function(e){var r=e.target.closest('tr[data-i]');if(r){load(+r.dataset.i);window.scrollTo({top:0});}});
+$('head').addEventListener('click',function(e){if(e.target.id==='reset')load(curIdx);});
+$('filters').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;filter=b.dataset.f;
+  Array.prototype.forEach.call($('filters').children,function(x){x.setAttribute('aria-pressed',String(x===b));});
+  renderLog();
+});
+$('mtabs').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;mtab=b.dataset.m;renderPreview();});
+
+load(0);
+})();
+</script>
+</body>
+</html>
